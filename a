@@ -1,0 +1,105 @@
+#!/usr/bin/env node
+// ============================================================
+// Fetch the on-chain vGLD circulating supply and print a
+// ready-to-paste SQL statement that aligns vault_state.total_supply
+// to it.
+//
+// Why a script and not pure SQL: Cloud SQL Studio can't make
+// HTTP calls to Hiro. This script is the bridge.
+//
+// Safety: makes ZERO DB writes. Run it locally, copy the
+// printed UPDATE statement, and paste it into Cloud SQL UI
+// when you're ready.
+//
+// Inputs:
+//   NETWORK_URL        default https://api.mainnet.hiro.so
+//   DEPLOYER_ADDRESS   default SP183MTM6NNBG18YSKCQG7Y5P5HVTAK8WSXJNKYMW
+//
+// Usage:
+//   node scripts/reconcile-vault-state.mjs
+// ============================================================
+
+const NETWORK_URL = (process.env.NETWORK_URL || 'https://api.mainnet.hiro.so').replace(/\/+$/, '');
+const DEPLOYER    =  process.env.DEPLOYER_ADDRESS || 'SP183MTM6NNBG18YSKCQG7Y5P5HVTAK8WSXJNKYMW';
+const VGLD_TOKEN   = 'vgld-token-v4';
+const VGLD_VAULT   = `${DEPLOYER}.vgld-vault-v4`;
+const VGLD_DECIMALS = 8;
+
+function parseClarityOkUint(hex) {
+    if (!hex) return 0n;
+    const stripped = hex.startsWith('0x0701') ? hex.slice(6)
+                    : hex.startsWith('0x01')   ? hex.slice(4)
+                    : null;
+    if (stripped == null) return 0n;
+    return BigInt('0x' + stripped);
+}
+
+async function callReadOnly(contractName, fn) {
+    const url = `${NETWORK_URL}/v2/contracts/call-read/${DEPLOYER}/${contractName}/${fn}`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender: DEPLOYER, arguments: [] }),
+    });
+    if (!res.ok) throw new Error(`${fn} ${res.status}: ${await res.text()}`);
+    const j = await res.json();
+    if (!j.okay) throw new Error(`${fn} not okay: ${JSON.stringify(j)}`);
+    return parseClarityOkUint(j.result);
+}
+
+async function ftBalance(principal, tokenId) {
+    const res = await fetch(`${NETWORK_URL}/extended/v1/address/${principal}/balances`);
+    if (!res.ok) throw new Error(`balances ${res.status}: ${await res.text()}`);
+    const j = await res.json();
+    return BigInt(j.fungible_tokens?.[tokenId]?.balance || '0');
+}
+
+function microToDec(micro, decimals) {
+    const neg = micro < 0n;
+    const abs = neg ? -micro : micro;
+    const divisor = 10n ** BigInt(decimals);
+    const whole = abs / divisor;
+    const frac  = (abs % divisor).toString().padStart(decimals, '0');
+    return `${neg ? '-' : ''}${whole}.${frac}`;
+}
+
+async function main() {
+    const supplyMicro    = await callReadOnly(VGLD_TOKEN, 'get-total-supply');
+    const tokenId        = `${DEPLOYER}.${VGLD_TOKEN}::vGLD`;
+    const vaultHeldMicro = await ftBalance(VGLD_VAULT, tokenId);
+    const circulatingMicro = supplyMicro > vaultHeldMicro
+        ? supplyMicro - vaultHeldMicro
+        : 0n;
+
+    const supplyDec      = microToDec(supplyMicro,      VGLD_DECIMALS);
+    const vaultHeldDec   = microToDec(vaultHeldMicro,   VGLD_DECIMALS);
+    const circulatingDec = microToDec(circulatingMicro, VGLD_DECIMALS);
+
+    console.log('# vGLD on-chain supply snapshot');
+    console.log(`# fetched from: ${NETWORK_URL}`);
+    console.log(`# deployer:     ${DEPLOYER}`);
+    console.log(`# total_supply on-chain : ${supplyDec}`);
+    console.log(`# vault held           : ${vaultHeldDec}`);
+    console.log(`# circulating          : ${circulatingDec}`);
+    console.log('');
+    console.log('# Paste into Cloud SQL Studio (wrapped in a transaction so');
+    console.log('# you can verify with the SELECT before changing ROLLBACK to COMMIT):');
+    console.log('');
+    console.log('BEGIN;');
+    console.log('');
+    console.log('UPDATE voltfigold.vault_state');
+    console.log(`   SET total_supply = ${circulatingDec}::numeric,`);
+    console.log('       updated_at   = now()');
+    console.log(' WHERE id = 1;');
+    console.log('');
+    console.log('SELECT id, total_supply, updated_at FROM voltfigold.vault_state WHERE id = 1;');
+    console.log('');
+    console.log('-- change to COMMIT; to apply');
+    console.log('ROLLBACK;');
+}
+
+main().catch(e => {
+    console.error('FATAL:', e);
+    process.exit(1);
+});
+

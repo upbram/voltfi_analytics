@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoltFi Analytics</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-logo">
+            <span class="logo-icon">⚡</span>
+            <span class="logo-text">VoltFi Analytics</span>
+        </div>
+        <div class="sidebar-nav">
+            <a href="#" class="nav-item active" data-tab="overview">
+                <span class="nav-icon">◉</span>
+                <span>Overview</span>
+            </a>
+            <a href="#" class="nav-item" data-tab="business">
+                <span class="nav-icon">◈</span>
+                <span>Business</span>
+            </a>
+            <a href="#" class="nav-item" data-tab="users">
+                <span class="nav-icon">◎</span>
+                <span>Users</span>
+            </a>
+            <a href="#" class="nav-item" data-tab="operations">
+                <span class="nav-icon">◐</span>
+                <span>Operations</span>
+            </a>
+            <a href="#" class="nav-item" data-tab="bitflow">
+                <span class="nav-icon">◇</span>
+                <span>Bitflow</span>
+            </a>
+            <a href="#" class="nav-item" data-tab="onchain">
+                <span class="nav-icon">◆</span>
+                <span>On-Chain</span>
+            </a>
+        </div>
+        <div class="sidebar-footer">
+            <span class="version">v0.4b — On-Chain</span>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="top-bar">
+            <h1 class="page-title">Overview</h1>
+            <div class="top-bar-actions">
+                <button id="refresh-btn" class="btn btn-secondary">Refresh</button>
+                <span id="last-updated" class="last-updated"></span>
+            </div>
+        </header>
+
+        <section id="tab-overview" class="tab-content active">
+            <div id="kpi-grid" class="kpi-grid">
+                <div class="kpi-card skeleton" id="kpi-tvl">
+                    <div class="kpi-label">Total TVL</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card skeleton" id="kpi-users">
+                    <div class="kpi-label">Total Users</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card skeleton" id="kpi-apy">
+                    <div class="kpi-label">Current APY</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card skeleton" id="kpi-nav">
+                    <div class="kpi-label">vGLD NAV Price</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card skeleton" id="kpi-deposits-24h">
+                    <div class="kpi-label">Deposits (24h)</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card skeleton" id="kpi-withdrawals-24h">
+                    <div class="kpi-label">Withdrawals (24h)</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card skeleton" id="kpi-pending">
+                    <div class="kpi-label">Pending Deposits</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card skeleton" id="kpi-reserve">
+                    <div class="kpi-label">Reserve Ratio</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card skeleton" id="kpi-paxg">
+                    <div class="kpi-label">Total PAXG</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card skeleton" id="kpi-gold">
+                    <div class="kpi-label">Gold Spot Price</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card skeleton" id="kpi-supply">
+                    <div class="kpi-label">vGLD Supply</div>
+                    <div class="kpi-value">—</div>
+                </div>
+            </div>
+
+            <div id="overview-error" class="error-banner" style="display:none;"></div>
+        </section>
+
+        <section id="tab-business" class="tab-content">
+            <div class="period-selector">
+                <button class="period-btn active" data-period="7d">7D</button>
+                <button class="period-btn" data-period="30d">30D</button>
+                <button class="period-btn" data-period="90d">90D</button>
+                <button class="period-btn" data-period="all">All</button>
+            </div>
+
+            <div class="charts-row">
+                <div class="chart-card">
+                    <h3 class="chart-title">Deposit & Withdrawal Volume</h3>
+                    <div class="chart-summary" id="volume-summary"></div>
+                    <div class="chart-container">
+                        <canvas id="volume-chart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3 class="chart-title">Revenue Breakdown</h3>
+                    <div class="chart-summary" id="revenue-summary"></div>
+                    <div class="chart-container">
+                        <canvas id="revenue-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="charts-row">
+                <div class="chart-card full-width">
+                    <h3 class="chart-title">Carry Trade Yield (Vault Rolls)</h3>
+                    <div class="chart-summary" id="yield-summary"></div>
+                    <div class="chart-container">
+                        <canvas id="yield-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div id="business-error" class="error-banner" style="display:none;"></div>
+        </section>
+        <section id="tab-users" class="tab-content">
+            <div class="kpi-grid" style="margin-bottom: 20px;">
+                <div class="kpi-card" id="kpi-total-users-tab">
+                    <div class="kpi-label">Total Users</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-wau">
+                    <div class="kpi-label">Weekly Active</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-mau">
+                    <div class="kpi-label">Monthly Active</div>
+                    <div class="kpi-value">—</div>
+                </div>
+            </div>
+
+            <div class="charts-row">
+                <div class="chart-card">
+                    <h3 class="chart-title">User Growth</h3>
+                    <div class="chart-container">
+                        <canvas id="growth-chart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3 class="chart-title">Daily Active Users</h3>
+                    <div class="chart-container">
+                        <canvas id="dau-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card full-width" style="margin-top: 16px;">
+                <h3 class="chart-title">Top Holders</h3>
+                <div class="table-container">
+                    <table class="data-table" id="holders-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="address">Address</th>
+                                <th data-sort="total_deposited_usd">Deposited</th>
+                                <th data-sort="total_withdrawn_usd">Withdrawn</th>
+                                <th data-sort="net_usd">Net</th>
+                                <th data-sort="deposit_count">Txns</th>
+                                <th data-sort="products">Products</th>
+                                <th data-sort="first_deposit">First</th>
+                                <th data-sort="last_deposit">Last</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holders-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="users-error" class="error-banner" style="display:none;"></div>
+        </section>
+        <section id="tab-operations" class="tab-content">
+            <div class="kpi-grid" style="margin-bottom: 20px;">
+                <div class="kpi-card" id="kpi-paxg-held">
+                    <div class="kpi-label">PAXG Held</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-futures-short">
+                    <div class="kpi-label">Futures Short</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-hedge-ratio">
+                    <div class="kpi-label">Hedge Coverage</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-open-positions">
+                    <div class="kpi-label">Open Positions</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-p50">
+                    <div class="kpi-label">Deposit p50</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-p90">
+                    <div class="kpi-label">Deposit p90</div>
+                    <div class="kpi-value">—</div>
+                </div>
+            </div>
+
+            <div class="charts-row">
+                <div class="chart-card">
+                    <h3 class="chart-title">Deposit Pipeline Funnel</h3>
+                    <div class="chart-container">
+                        <canvas id="funnel-chart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3 class="chart-title">Processing Time (minutes)</h3>
+                    <div class="chart-container">
+                        <canvas id="processing-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="charts-row">
+                <div class="chart-card full-width">
+                    <h3 class="chart-title">Hedge Coverage</h3>
+                    <div class="chart-container" style="height: 200px;">
+                        <canvas id="hedge-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ops-error" class="error-banner" style="display:none;"></div>
+        </section>
+
+        <section id="tab-bitflow" class="tab-content">
+            <div class="kpi-grid" style="margin-bottom: 20px;">
+                <div class="kpi-card" id="kpi-bf-total-usdc">
+                    <div class="kpi-label">Total USDC Swapped</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-bf-total-fees">
+                    <div class="kpi-label">Total Bitflow Fees</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-bf-total-txns">
+                    <div class="kpi-label">USDC Swap Txns</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-bf-avg-size">
+                    <div class="kpi-label">Avg Swap Size</div>
+                    <div class="kpi-value">—</div>
+                </div>
+            </div>
+
+            <div class="charts-row">
+                <div class="chart-card full-width">
+                    <h3 class="chart-title">Daily USDC Volume via Bitflow</h3>
+                    <div class="chart-container">
+                        <canvas id="bitflow-volume-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="charts-row">
+                <div class="chart-card full-width">
+                    <h3 class="chart-title">Daily Bitflow Fees</h3>
+                    <div class="chart-container">
+                        <canvas id="bitflow-fees-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card full-width" style="margin-top: 16px;">
+                <h3 class="chart-title">Bitflow Swap History</h3>
+                <div class="table-container">
+                    <table class="data-table" id="bitflow-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>USDC Swapped</th>
+                                <th>Bitflow Fee</th>
+                                <th>Txns</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bitflow-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="bitflow-error" class="error-banner" style="display:none;"></div>
+        </section>
+
+        <section id="tab-onchain" class="tab-content">
+            <div class="kpi-grid" style="margin-bottom: 20px;">
+                <div class="kpi-card" id="kpi-vpaxg-supply">
+                    <div class="kpi-label">vPAXG Supply</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-vgld-supply">
+                    <div class="kpi-label">vGLD Supply</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-vpaxg-holders">
+                    <div class="kpi-label">vPAXG Holders</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-vgld-holders">
+                    <div class="kpi-label">vGLD Holders</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-total-unique-wallets">
+                    <div class="kpi-label">Total Unique Wallets</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-total-txs">
+                    <div class="kpi-label">On-Chain Txs</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-success-rate">
+                    <div class="kpi-label">Success Rate</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-mints-vpaxg">
+                    <div class="kpi-label">vPAXG Mints</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-mints-vgld">
+                    <div class="kpi-label">vGLD Mints</div>
+                    <div class="kpi-value">—</div>
+                </div>
+                <div class="kpi-card" id="kpi-deployer-bal">
+                    <div class="kpi-label">Deployer STX</div>
+                    <div class="kpi-value">—</div>
+                </div>
+            </div>
+
+            <div class="chart-card full-width" style="margin-bottom: 16px;">
+                <h3 class="chart-title">Mint vs Burn Accounting</h3>
+                <div class="table-container">
+                    <table class="data-table" id="mint-burn-table">
+                        <thead>
+                            <tr>
+                                <th>Token</th>
+                                <th>Mints</th>
+                                <th>Mint Amount</th>
+                                <th>Burns</th>
+                                <th>Burn Amount</th>
+                                <th>Net Txns</th>
+                                <th>Net Outstanding</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mint-burn-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="chart-card full-width" style="margin-bottom: 16px;">
+                <h3 class="chart-title">Mint Proof Audit Trail</h3>
+                <div class="table-container">
+                    <table class="data-table" id="proofs-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Product</th>
+                                <th>Order ID</th>
+                                <th>Recipient</th>
+                                <th>Deposited</th>
+                                <th>Minted</th>
+                                <th>Total Minted</th>
+                                <th>NAV / PAXG Price</th>
+                                <th>Coinbase Fee</th>
+                                <th>Bitflow Fee</th>
+                                <th>TX</th>
+                            </tr>
+                        </thead>
+                        <tbody id="proofs-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="charts-row">
+                <div class="chart-card">
+                    <h3 class="chart-title">vPAXG Token Holders</h3>
+                    <div class="table-container">
+                        <table class="data-table" id="vpaxg-holders-table">
+                            <thead>
+                                <tr>
+                                    <th>Address</th>
+                                    <th>Balance</th>
+                                    <th>Share</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vpaxg-holders-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3 class="chart-title">vGLD Token Holders</h3>
+                    <div class="table-container">
+                        <table class="data-table" id="vgld-holders-table">
+                            <thead>
+                                <tr>
+                                    <th>Address</th>
+                                    <th>Balance</th>
+                                    <th>Share</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vgld-holders-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card full-width" style="margin-top: 16px;">
+                <h3 class="chart-title">All On-Chain Transactions</h3>
+                <div class="table-container" style="max-height: 500px; overflow-y: auto;">
+                    <table class="data-table" id="txs-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Type</th>
+                                <th>Contract</th>
+                                <th>Function</th>
+                                <th>Status</th>
+                                <th>Fee</th>
+                                <th>TX</th>
+                            </tr>
+                        </thead>
+                        <tbody id="txs-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="onchain-error" class="error-banner" style="display:none;"></div>
+        </section>
+    </main>
+
+    <script src="/js/charts.js?v=7"></script>
+    <script src="/js/app.js?v=7"></script>
+</body>
+</html>
